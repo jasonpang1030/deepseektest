@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Chat Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .typing-indicator span {
+            animation: blink 1.5s infinite;
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #5D5CDE;
+            margin: 0 2px;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        .dark .code-block {
+            background-color: #2d2d2d;
+        }
+        
+        .code-block {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 min-h-screen">
+    <div class="container mx-auto p-4 max-w-4xl">
+        <header class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-2">DeepSeek API 聊天接口</h1>
+            <p class="text-gray-600 dark:text-gray-300">使用 DeepSeek API 進行對話</p>
+        </header>
+
+        <!-- API Key input section -->
+        <div class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <label for="apiKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">DeepSeek API Key</label>
+                    <input type="password" id="apiKey" placeholder="輸入您的 API Key" class="w-full p-2 text-base border rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary">
+                </div>
+                <div class="flex-1">
+                    <label for="modelSelect" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">選擇模型</label>
+                    <select id="modelSelect" class="w-full p-2 text-base border rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary">
+                        <option value="deepseek-chat">deepseek-chat</option>
+                        <option value="deepseek-coder">deepseek-coder</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-2">
+                <div class="flex items-center">
+                    <input type="checkbox" id="saveApiKey" class="rounded text-primary focus:ring-primary dark:bg-gray-700">
+                    <label for="saveApiKey" class="ml-2 text-sm text-gray-700 dark:text-gray-300">在本地保存 API Key（僅保存在瀏覽器中）</label>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">注意：API Key 只會保存在您的瀏覽器中，不會傳送到任何服務器</p>
+            </div>
+        </div>
+
+        <!-- Chat container -->
+        <div id="chatContainer" class="mb-6 bg-gray-50 dark:bg-gray-800 rounded-lg min-h-[400px] border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
+            <div id="messagesContainer" class="flex-1 p-4 overflow-y-auto">
+                <div class="text-center text-gray-500 dark:text-gray-400 py-10">
+                    輸入您的 API Key 並開始對話
+                </div>
+            </div>
+            
+            <!-- Input area -->
+            <div class="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+                <div class="flex">
+                    <textarea id="userInput" rows="1" placeholder="輸入訊息..." 
+                        class="flex-1 p-2 text-base border rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"></textarea>
+                    <button id="sendBtn" class="ml-2 px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center">
+                        <span>發送</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instructions section -->
+        <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
+            <h2 class="text-lg font-bold text-gray-800 dark:text-white mb-2">使用說明</h2>
+            <ul class="list-disc pl-5 text-gray-700 dark:text-gray-300 space-y-1">
+                <li>獲取 DeepSeek API Key: <a href="https://platform.deepseek.com/" target="_blank" class="text-primary hover:underline">https://platform.deepseek.com/</a></li>
+                <li>輸入您的 API Key 並選擇模型</li>
+                <li>輸入您的問題並點擊發送按鈕</li>
+                <li>您可以選擇在瀏覽器中保存 API Key 以便下次使用</li>
+                <li>源代碼可在 GitHub 上獲取，可自行部署</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Auto-resize textarea
+        const userInput = document.getElementById('userInput');
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if (this.scrollHeight > 200) {
+                this.style.height = '200px';
+                this.style.overflowY = 'auto';
+            } else {
+                this.style.overflowY = 'hidden';
+            }
+        });
+
+        // Enter key to send message
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('sendBtn').click();
+            }
+        });
+
+        // Load saved API key if available
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedApiKey = localStorage.getItem('deepseekApiKey');
+            if (savedApiKey) {
+                document.getElementById('apiKey').value = savedApiKey;
+                document.getElementById('saveApiKey').checked = true;
+            }
+        });
+
+        // Handle sending messages
+        document.getElementById('sendBtn').addEventListener('click', async function() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const message = userInput.value.trim();
+            const model = document.getElementById('modelSelect').value;
+            
+            if (!apiKey) {
+                alert('請輸入 API Key');
+                return;
+            }
+            
+            if (!message) {
+                return;
+            }
+            
+            // Save API key if checkbox is checked
+            if (document.getElementById('saveApiKey').checked) {
+                localStorage.setItem('deepseekApiKey', apiKey);
+            } else {
+                localStorage.removeItem('deepseekApiKey');
+            }
+            
+            // Add user message to chat
+            addMessage('user', message);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            
+            // Disable send button while waiting for response
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            
+            // Add a placeholder for the AI response with loading indicator
+            const responseId = 'response-' + Date.now();
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.innerHTML += `
+                <div id="${responseId}" class="flex items-start mb-4">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center mr-2">
+                        AI
+                    </div>
+                    <div class="flex-1 p-3 rounded-lg bg-gray-100 dark:bg-gray-700">
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            try {
+                // Call the DeepSeek API
+                await sendToDeepSeek(apiKey, message, model, responseId);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById(responseId).querySelector('div:last-child').innerHTML = 
+                    `<p class="text-red-500">發生錯誤: ${error.message || '請檢查您的 API Key 和網絡連接'}</p>`;
+            } finally {
+                sendBtn.disabled = false;
+            }
+        });
+
+        // Function to add a message to the chat
+        function addMessage(sender, content) {
+            const messagesContainer = document.getElementById('messagesContainer');
+            
+            // Clear initial instructions if this is the first message
+            if (messagesContainer.querySelector('.text-center')) {
+                messagesContainer.innerHTML = '';
+            }
+            
+            // Create message HTML
+            let messageHTML = '';
+            if (sender === 'user') {
+                messageHTML = `
+                    <div class="flex items-start mb-4 justify-end">
+                        <div class="flex-1 p-3 rounded-lg bg-primary bg-opacity-10 dark:bg-primary dark:bg-opacity-20 ml-12">
+                            <p class="text-gray-800 dark:text-gray-200">${escapeHTML(content)}</p>
+                        </div>
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 flex items-center justify-center ml-2">
+                            你
+                        </div>
+                    </div>
+                `;
+            }
+            
+            messagesContainer.innerHTML += messageHTML;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Function to send message to DeepSeek API
+        async function sendToDeepSeek(apiKey, message, model, responseId) {
+            // Format the API endpoint and request body based on DeepSeek documentation
+            const apiEndpoint = 'https://api.deepseek.com/v1/chat/completions';
+            
+            // Prepare the messages array with user's message
+            const messages = [
+                { role: 'user', content: message }
+            ];
+            
+            const requestOptions = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: model,
+                    messages: messages,
+                    stream: true
+                })
+            };
+            
+            // Use fetch with streaming response
+            const response = await fetch(apiEndpoint, requestOptions);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API error: ${response.status} - ${errorText}`);
+            }
+            
+            // Get the AI response element
+            const responseElement = document.getElementById(responseId).querySelector('div:last-child');
+            responseElement.innerHTML = ''; // Clear loading indicator
+            
+            let fullResponse = '';
+            
+            // Process the streaming response
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value, { stream: true });
+                const lines = chunk.split('\n');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                        try {
+                            const jsonData = JSON.parse(line.substring(6));
+                            
+                            if (jsonData.choices && jsonData.choices[0] && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
+                                const content = jsonData.choices[0].delta.content;
+                                fullResponse += content;
+                                
+                                // Update the response element with formatted content
+                                responseElement.innerHTML = formatMarkdown(fullResponse);
+                                
+                                // Scroll to bottom
+                                const messagesContainer = document.getElementById('messagesContainer');
+                                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing JSON from stream', e);
+                        }
+                    }
+                }
+            }
+            
+            // If no content was received, show an empty response
+            if (!fullResponse) {
+                responseElement.innerHTML = '<p class="text-gray-500 dark:text-gray-400">No response received</p>';
+            }
+        }
+
+        // Helper function to format markdown-like text
+        function formatMarkdown(text) {
+            // Simple markdown formatting (code blocks, bold, etc.)
+            let formatted = escapeHTML(text);
+            
+            // Code blocks (```code```)
+            formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre class="code-block p-3 rounded my-2 overflow-x-auto"><code>$1</code></pre>');
+            
+            // Inline code (`code`)
+            formatted = formatted.replace(/`([^`]+)`/g, '<code class="bg-gray-200 dark:bg-gray-600 px-1 rounded">$1</code>');
+            
+            // Bold (**text**)
+            formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            
+            // Italic (*text*)
+            formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            
+            // Line breaks
+            formatted = formatted.replace(/\n/g, '<br>');
+            
+            return formatted;
+        }
+
+        // Helper function to escape HTML
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
